@@ -77,6 +77,7 @@ func New(db *gorm.DB, key []byte) *Store {
 
 // NewOptions creates a new gormstore session with options
 func NewOptions(db *gorm.DB, opts Options, key []byte) *Store {
+	securecookie.DefaultOptions.Serializer = securecookie.GobEncoder{}
 	sc, _ := securecookie.New(key, securecookie.DefaultOptions)
 	st := &Store{
 		db:           db,
