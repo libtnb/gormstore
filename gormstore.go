@@ -66,11 +66,11 @@ type Store struct {
 }
 
 type gormSession struct {
-	ID        string `sql:"unique_index"`
-	Data      string `sql:"type:text"`
+	ID        string `gorm:"primaryKey"`
+	Data      string `gorm:"type:text"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	ExpiresAt time.Time `sql:"index"`
+	ExpiresAt time.Time `gorm:"index"`
 }
 
 // New creates a new gormstore session
