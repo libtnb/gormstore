@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-    - master
+      - master
   pull_request:
   # enable manual trigger
   workflow_dispatch:
@@ -14,16 +14,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        go: [1.20.x, 1.19.x, 1.18.x]
+        os: [ ubuntu-latest ]
+        go: [ "oldstable", "stable" ]
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Setup Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: ${{ matrix.go }}
-    - name: Test
-      run: ./test
-    - name:
-      run: cd v2 && ./test
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Test
+        run: ./test

@@ -13,8 +13,8 @@ All options:
 			TableName: "sessions",  // "sessions" is default
 			SkipCreateTable: false, // false is default
 		},
-		[]byte("secret-hash-key"),      // 32 or 64 bytes recommended, required
-		[]byte("secret-encyption-key")) // nil, 16, 24 or 32 bytes, optional
+		[]byte("secret-hash-key"),       // 32 or 64 bytes recommended, required
+		[]byte("secret-encryption-key")) // nil, 16, 24 or 32 bytes, optional
 
 		// some more settings, see sessions.Options
 		store.SessionOpts.Secure = true
@@ -23,8 +23,8 @@ All options:
 
 If you want periodic cleanup of expired sessions:
 
-		quit := make(chan struct{})
-		go store.PeriodicCleanup(1*time.Hour, quit)
+	quit := make(chan struct{})
+	go store.PeriodicCleanup(1*time.Hour, quit)
 
 For more information about the keys see https://github.com/gorilla/securecookie
 
@@ -38,9 +38,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/securecookie"
+	"github.com/go-rat/securecookie"
 	"github.com/gorilla/sessions"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 const sessionIDLen = 32
@@ -56,10 +56,10 @@ type Options struct {
 
 // Store represent a gormstore
 type Store struct {
-	db          *gorm.DB
-	opts        Options
-	Codecs      []securecookie.Codec
-	SessionOpts *sessions.Options
+	db           *gorm.DB
+	opts         Options
+	SecureCookie *securecookie.SecureCookie
+	SessionOpts  *sessions.Options
 }
 
 type gormSession struct {
@@ -68,25 +68,20 @@ type gormSession struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	ExpiresAt time.Time `sql:"index"`
-
-	tableName string `sql:"-"` // just for convenience instead of db.Table(...)
-}
-
-func (gs *gormSession) TableName() string {
-	return gs.tableName
 }
 
 // New creates a new gormstore session
-func New(db *gorm.DB, keyPairs ...[]byte) *Store {
-	return NewOptions(db, Options{}, keyPairs...)
+func New(db *gorm.DB, key []byte) *Store {
+	return NewOptions(db, Options{}, key)
 }
 
 // NewOptions creates a new gormstore session with options
-func NewOptions(db *gorm.DB, opts Options, keyPairs ...[]byte) *Store {
+func NewOptions(db *gorm.DB, opts Options, key []byte) *Store {
+	sc, _ := securecookie.New(key, securecookie.DefaultOptions)
 	st := &Store{
-		db:     db,
-		opts:   opts,
-		Codecs: securecookie.CodecsFromPairs(keyPairs...),
+		db:           db,
+		opts:         opts,
+		SecureCookie: sc,
 		SessionOpts: &sessions.Options{
 			Path:   defaultPath,
 			MaxAge: defaultMaxAge,
@@ -97,10 +92,14 @@ func NewOptions(db *gorm.DB, opts Options, keyPairs ...[]byte) *Store {
 	}
 
 	if !st.opts.SkipCreateTable {
-		st.db.AutoMigrate(&gormSession{tableName: st.opts.TableName})
+		_ = st.sessionTable().AutoMigrate(&gormSession{})
 	}
 
 	return st
+}
+
+func (st *Store) sessionTable() *gorm.DB {
+	return st.db.Table(st.opts.TableName)
 }
 
 // Get returns a session for the given name after adding it to the registry.
@@ -120,7 +119,7 @@ func (st *Store) New(r *http.Request, name string) (*sessions.Session, error) {
 	// try fetch from db if there is a cookie
 	s := st.getSessionFromCookie(r, session.Name())
 	if s != nil {
-		if err := securecookie.DecodeMulti(session.Name(), s.Data, &session.Values, st.Codecs...); err != nil {
+		if err := st.SecureCookie.Decode(session.Name(), s.Data, &session.Values); err != nil {
 			return session, nil
 		}
 		session.ID = s.ID
@@ -137,7 +136,7 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 	// delete if max age is < 0
 	if session.Options.MaxAge < 0 {
 		if s != nil {
-			if err := st.db.Delete(s).Error; err != nil {
+			if err := st.sessionTable().Delete(s).Error; err != nil {
 				return err
 			}
 		}
@@ -145,7 +144,7 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 		return nil
 	}
 
-	data, err := securecookie.EncodeMulti(session.Name(), session.Values, st.Codecs...)
+	data, err := st.SecureCookie.Encode(session.Name(), session.Values)
 	if err != nil {
 		return err
 	}
@@ -163,22 +162,21 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 			CreatedAt: now,
 			UpdatedAt: now,
 			ExpiresAt: expire,
-			tableName: st.opts.TableName,
 		}
-		if err := st.db.Create(s).Error; err != nil {
+		if err := st.sessionTable().Create(s).Error; err != nil {
 			return err
 		}
 	} else {
 		s.Data = data
 		s.UpdatedAt = now
 		s.ExpiresAt = expire
-		if err := st.db.Save(s).Error; err != nil {
+		if err := st.sessionTable().Save(s).Error; err != nil {
 			return err
 		}
 	}
 
 	// set session id cookie
-	id, err := securecookie.EncodeMulti(session.Name(), s.ID, st.Codecs...)
+	id, err := st.SecureCookie.Encode(session.Name(), s.ID)
 	if err != nil {
 		return err
 	}
@@ -191,11 +189,12 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 func (st *Store) getSessionFromCookie(r *http.Request, name string) *gormSession {
 	if cookie, err := r.Cookie(name); err == nil {
 		sessionID := ""
-		if err := securecookie.DecodeMulti(name, cookie.Value, &sessionID, st.Codecs...); err != nil {
+		if err = st.SecureCookie.Decode(name, cookie.Value, &sessionID); err != nil {
 			return nil
 		}
-		s := &gormSession{tableName: st.opts.TableName}
-		if err := st.db.Where("id = ? AND expires_at > ?", sessionID, gorm.NowFunc()).First(s).Error; err != nil {
+		s := &gormSession{}
+		sr := st.sessionTable().Where("id = ? AND expires_at > ?", sessionID, time.Now()).Limit(1).Find(s)
+		if sr.Error != nil || sr.RowsAffected == 0 {
 			return nil
 		}
 		return s
@@ -208,27 +207,27 @@ func (st *Store) getSessionFromCookie(r *http.Request, name string) *gormSession
 // Options.MaxAge = -1 for that session.
 func (st *Store) MaxAge(age int) {
 	st.SessionOpts.MaxAge = age
-	for _, codec := range st.Codecs {
+	/*for _, codec := range st.Codecs {
 		if sc, ok := codec.(*securecookie.SecureCookie); ok {
 			sc.MaxAge(age)
 		}
-	}
+	}*/
 }
 
 // MaxLength restricts the maximum length of new sessions to l.
 // If l is 0 there is no limit to the size of a session, use with caution.
 // The default is 4096 (default for securecookie)
 func (st *Store) MaxLength(l int) {
-	for _, c := range st.Codecs {
+	/*for _, c := range st.Codecs {
 		if codec, ok := c.(*securecookie.SecureCookie); ok {
 			codec.MaxLength(l)
 		}
-	}
+	}*/
 }
 
 // Cleanup deletes expired sessions
 func (st *Store) Cleanup() {
-	st.db.Delete(&gormSession{tableName: st.opts.TableName}, "expires_at <= ?", gorm.NowFunc())
+	st.sessionTable().Delete(&gormSession{}, "expires_at <= ?", time.Now())
 }
 
 // PeriodicCleanup runs Cleanup every interval. Close quit channel to stop.

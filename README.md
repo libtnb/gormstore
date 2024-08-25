@@ -1,17 +1,13 @@
 #### GORM backend for gorilla sessions
 
-For gorm v2 use:
+Use:
 ```
-import "github.com/wader/gormstore/v2"
-```
-For gorm v1 use:
-```
-import "github.com/wader/gormstore"
+import "github.com/go-rat/gormstore"
 ```
 
 #### Documentation
 
-https://pkg.go.dev/github.com/wader/gormstore?tab=doc
+https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc
 
 #### Example
 
@@ -34,7 +30,7 @@ func handlerFunc(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-For more details see [gormstore documentation](https://pkg.go.dev/github.com/wader/gormstore?tab=doc).
+For more details see [gormstore documentation](https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc).
 
 #### Testing
 
