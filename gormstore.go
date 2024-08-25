@@ -60,6 +60,8 @@ type Store struct {
 	opts         Options
 	keys         [][]byte
 	secureCookie *securecookie.SecureCookie
+	maxAge       int64
+	maxLength    int
 	SessionOpts  *sessions.Options
 }
 
@@ -83,6 +85,7 @@ func NewOptions(db *gorm.DB, opts Options, keys ...[]byte) *Store {
 	}
 
 	sc, _ := securecookie.New(keys[0], &securecookie.Options{
+		MinAge:      defaultMaxAge,
 		RotatedKeys: keys[1:],
 		Serializer:  securecookie.GobEncoder{},
 	})
@@ -91,6 +94,8 @@ func NewOptions(db *gorm.DB, opts Options, keys ...[]byte) *Store {
 		opts:         opts,
 		keys:         keys,
 		secureCookie: sc,
+		maxAge:       defaultMaxAge,
+		maxLength:    securecookie.DefaultOptions.MaxLength,
 		SessionOpts: &sessions.Options{
 			Path:   defaultPath,
 			MaxAge: defaultMaxAge,
@@ -216,10 +221,10 @@ func (st *Store) getSessionFromCookie(r *http.Request, name string) *gormSession
 // Options.MaxAge = -1 for that session.
 func (st *Store) MaxAge(age int) {
 	st.SessionOpts.MaxAge = age
-	securecookie.DefaultOptions.MaxAge = int64(age)
+	st.maxAge = int64(age)
 	sc, _ := securecookie.New(st.keys[0], &securecookie.Options{
-		MaxAge:      int64(age),
-		MaxLength:   securecookie.DefaultOptions.MaxLength,
+		MaxAge:      st.maxAge,
+		MaxLength:   st.maxLength,
 		RotatedKeys: st.keys[1:],
 		Serializer:  securecookie.GobEncoder{},
 	})
@@ -230,10 +235,10 @@ func (st *Store) MaxAge(age int) {
 // If l is 0 there is no limit to the size of a session, use with caution.
 // The default is 4096 (default for securecookie)
 func (st *Store) MaxLength(l int) {
-	securecookie.DefaultOptions.MaxLength = l
+	st.maxLength = l
 	sc, _ := securecookie.New(st.keys[0], &securecookie.Options{
-		MaxAge:      securecookie.DefaultOptions.MaxAge,
-		MaxLength:   l,
+		MaxAge:      st.maxAge,
+		MaxLength:   st.maxLength,
 		RotatedKeys: st.keys[1:],
 		Serializer:  securecookie.GobEncoder{},
 	})
