@@ -58,7 +58,7 @@ type Options struct {
 type Store struct {
 	db           *gorm.DB
 	opts         Options
-	key          []byte
+	keys         [][]byte
 	secureCookie *securecookie.SecureCookie
 	SessionOpts  *sessions.Options
 }
@@ -72,18 +72,24 @@ type gormSession struct {
 }
 
 // New creates a new gormstore session
-func New(db *gorm.DB, key []byte) *Store {
-	return NewOptions(db, Options{}, key)
+func New(db *gorm.DB, keys ...[]byte) *Store {
+	return NewOptions(db, Options{}, keys...)
 }
 
 // NewOptions creates a new gormstore session with options
-func NewOptions(db *gorm.DB, opts Options, key []byte) *Store {
-	securecookie.DefaultOptions.Serializer = securecookie.GobEncoder{}
-	sc, _ := securecookie.New(key, securecookie.DefaultOptions)
+func NewOptions(db *gorm.DB, opts Options, keys ...[]byte) *Store {
+	if len(keys) == 0 {
+		panic("key required")
+	}
+
+	sc, _ := securecookie.New(keys[0], &securecookie.Options{
+		RotatedKeys: keys[1:],
+		Serializer:  securecookie.GobEncoder{},
+	})
 	st := &Store{
 		db:           db,
 		opts:         opts,
-		key:          key,
+		keys:         keys,
 		secureCookie: sc,
 		SessionOpts: &sessions.Options{
 			Path:   defaultPath,
@@ -211,7 +217,12 @@ func (st *Store) getSessionFromCookie(r *http.Request, name string) *gormSession
 func (st *Store) MaxAge(age int) {
 	st.SessionOpts.MaxAge = age
 	securecookie.DefaultOptions.MaxAge = int64(age)
-	sc, _ := securecookie.New(st.key, securecookie.DefaultOptions)
+	sc, _ := securecookie.New(st.keys[0], &securecookie.Options{
+		MaxAge:      int64(age),
+		MaxLength:   securecookie.DefaultOptions.MaxLength,
+		RotatedKeys: st.keys[1:],
+		Serializer:  securecookie.GobEncoder{},
+	})
 	st.secureCookie = sc
 }
 
@@ -220,7 +231,12 @@ func (st *Store) MaxAge(age int) {
 // The default is 4096 (default for securecookie)
 func (st *Store) MaxLength(l int) {
 	securecookie.DefaultOptions.MaxLength = l
-	sc, _ := securecookie.New(st.key, securecookie.DefaultOptions)
+	sc, _ := securecookie.New(st.keys[0], &securecookie.Options{
+		MaxAge:      securecookie.DefaultOptions.MaxAge,
+		MaxLength:   l,
+		RotatedKeys: st.keys[1:],
+		Serializer:  securecookie.GobEncoder{},
+	})
 	st.secureCookie = sc
 }
 
