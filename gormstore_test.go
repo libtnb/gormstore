@@ -76,8 +76,8 @@ func newDB() *gorm.DB {
 
 	// cleanup db
 	// TODO: check error if non not-exist err?
-	db.Migrator().DropTable("abc")
-	db.Migrator().DropTable("sessions")
+	_ = db.Migrator().DropTable("abc")
+	_ = db.Migrator().DropTable("sessions")
 
 	return db
 }
@@ -192,7 +192,7 @@ func TestMaxAgeNegative(t *testing.T) {
 		}
 
 		session.Options.MaxAge = -1
-		store.Save(r, w, session)
+		_ = store.Save(r, w, session)
 
 		http.Error(w, "", http.StatusOK)
 	}, parseCookies(r1.Header().Get("Set-Cookie"))["session"])

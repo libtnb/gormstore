@@ -58,7 +58,8 @@ type Options struct {
 type Store struct {
 	db           *gorm.DB
 	opts         Options
-	SecureCookie *securecookie.SecureCookie
+	key          []byte
+	secureCookie *securecookie.SecureCookie
 	SessionOpts  *sessions.Options
 }
 
@@ -82,7 +83,8 @@ func NewOptions(db *gorm.DB, opts Options, key []byte) *Store {
 	st := &Store{
 		db:           db,
 		opts:         opts,
-		SecureCookie: sc,
+		key:          key,
+		secureCookie: sc,
 		SessionOpts: &sessions.Options{
 			Path:   defaultPath,
 			MaxAge: defaultMaxAge,
@@ -120,7 +122,7 @@ func (st *Store) New(r *http.Request, name string) (*sessions.Session, error) {
 	// try fetch from db if there is a cookie
 	s := st.getSessionFromCookie(r, session.Name())
 	if s != nil {
-		if err := st.SecureCookie.Decode(session.Name(), s.Data, &session.Values); err != nil {
+		if err := st.secureCookie.Decode(session.Name(), s.Data, &session.Values); err != nil {
 			return session, nil
 		}
 		session.ID = s.ID
@@ -145,7 +147,7 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 		return nil
 	}
 
-	data, err := st.SecureCookie.Encode(session.Name(), session.Values)
+	data, err := st.secureCookie.Encode(session.Name(), session.Values)
 	if err != nil {
 		return err
 	}
@@ -177,7 +179,7 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 	}
 
 	// set session id cookie
-	id, err := st.SecureCookie.Encode(session.Name(), s.ID)
+	id, err := st.secureCookie.Encode(session.Name(), s.ID)
 	if err != nil {
 		return err
 	}
@@ -190,7 +192,7 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 func (st *Store) getSessionFromCookie(r *http.Request, name string) *gormSession {
 	if cookie, err := r.Cookie(name); err == nil {
 		sessionID := ""
-		if err = st.SecureCookie.Decode(name, cookie.Value, &sessionID); err != nil {
+		if err = st.secureCookie.Decode(name, cookie.Value, &sessionID); err != nil {
 			return nil
 		}
 		s := &gormSession{}
@@ -208,22 +210,18 @@ func (st *Store) getSessionFromCookie(r *http.Request, name string) *gormSession
 // Options.MaxAge = -1 for that session.
 func (st *Store) MaxAge(age int) {
 	st.SessionOpts.MaxAge = age
-	/*for _, codec := range st.Codecs {
-		if sc, ok := codec.(*securecookie.SecureCookie); ok {
-			sc.MaxAge(age)
-		}
-	}*/
+	securecookie.DefaultOptions.MaxAge = int64(age)
+	sc, _ := securecookie.New(st.key, securecookie.DefaultOptions)
+	st.secureCookie = sc
 }
 
 // MaxLength restricts the maximum length of new sessions to l.
 // If l is 0 there is no limit to the size of a session, use with caution.
 // The default is 4096 (default for securecookie)
 func (st *Store) MaxLength(l int) {
-	/*for _, c := range st.Codecs {
-		if codec, ok := c.(*securecookie.SecureCookie); ok {
-			codec.MaxLength(l)
-		}
-	}*/
+	securecookie.DefaultOptions.MaxLength = l
+	sc, _ := securecookie.New(st.key, securecookie.DefaultOptions)
+	st.secureCookie = sc
 }
 
 // Cleanup deletes expired sessions
