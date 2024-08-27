@@ -33,18 +33,17 @@ For API to use in HTTP handlers see https://github.com/gorilla/sessions
 package gormstore
 
 import (
-	"encoding/base32"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-rat/securecookie"
 	"github.com/gorilla/sessions"
+	"github.com/jaevor/go-nanoid"
 	"gorm.io/gorm"
 )
 
-const sessionIDLen = 32
 const defaultTableName = "sessions"
+
 const defaultMaxAge = 60 * 60 * 24 * 30 // 30 days
 const defaultPath = "/"
 
@@ -66,7 +65,7 @@ type Store struct {
 }
 
 type gormSession struct {
-	ID        string `gorm:"primaryKey"`
+	ID        string `gorm:"primaryKey;size:16"`
 	Data      string `gorm:"type:text"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -167,9 +166,9 @@ func (st *Store) Save(r *http.Request, w http.ResponseWriter, session *sessions.
 
 	if s == nil {
 		// generate random session ID key suitable for storage in the db
-		session.ID = strings.TrimRight(
-			base32.StdEncoding.EncodeToString(
-				securecookie.GenerateRandomKey(sessionIDLen)), "=")
+		alphabet := `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`
+		generator := nanoid.MustCustomASCII(alphabet, 16)
+		session.ID = generator()
 		s = &gormSession{
 			ID:        session.ID,
 			Data:      data,

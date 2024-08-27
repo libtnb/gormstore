@@ -2,11 +2,10 @@ module github.com/go-rat/gormstore
 
 go 1.23
 
-toolchain go1.23.0
-
 require (
 	github.com/go-rat/securecookie v0.0.0-20240825010859-c42a402907eb
 	github.com/gorilla/sessions v1.3.0
+	github.com/jaevor/go-nanoid v1.4.0
 	gorm.io/driver/mysql v1.4.7
 	gorm.io/driver/postgres v1.4.8
 	gorm.io/driver/sqlite v1.4.4
