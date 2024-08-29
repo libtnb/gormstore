@@ -87,8 +87,8 @@ func (st *Store) sessionTable() *gorm.DB {
 // getSessionByID looks for an existing gormSession from a session ID stored in database
 func (st *Store) getSessionByID(id string) *gormSession {
 	s := &gormSession{}
-	sr := st.sessionTable().Where("id = ? AND expires_at > ?", id, time.Now()).Limit(1).Find(s)
-	if sr.Error != nil || sr.RowsAffected == 0 {
+	sr := st.sessionTable().Where("id = ?", id).Limit(1).Find(s)
+	if sr.Error != nil {
 		return nil
 	}
 	return s
