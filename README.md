@@ -1,4 +1,4 @@
-#### GORM backend for gorilla sessions
+#### GORM backend for go-rat session
 
 Use:
 ```
@@ -13,21 +13,7 @@ https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc
 
 ```go
 // initialize and setup cleanup
-store := gormstore.New(gorm.Open(...), []byte("secret"))
-// db cleanup every hour
-// close quit channel to stop cleanup
-quit := make(chan struct{})
-go store.PeriodicCleanup(1*time.Hour, quit)
-```
-
-```go
-// in HTTP handler
-func handlerFunc(w http.ResponseWriter, r *http.Request) {
-  session, err := store.Get(r, "session")
-  session.Values["user_id"] = 123
-  store.Save(r, w, session)
-  http.Error(w, "", http.StatusOK)
-}
+store := gormstore.New(gorm.Open(...))
 ```
 
 For more details see [gormstore documentation](https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc).
