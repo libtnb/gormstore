@@ -22,10 +22,10 @@ type Store struct {
 }
 
 type gormSession struct {
-	ID        string `gorm:"primaryKey;size:16"`
-	Data      string `gorm:"type:text"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        string    `gorm:"primaryKey;size:16"`
+	Data      string    `gorm:"type:text"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
 // New creates a new gormstore session
