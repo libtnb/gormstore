@@ -3,7 +3,7 @@ package gormstore
 import (
 	"time"
 
-	"github.com/go-rat/sessions/driver"
+	"github.com/libtnb/sessions/driver"
 	"gorm.io/gorm"
 )
 

@@ -1,13 +1,13 @@
-#### GORM backend for go-rat session
+#### GORM backend for libtnb session
 
 Use:
 ```
-import "github.com/go-rat/gormstore"
+import "github.com/libtnb/gormstore"
 ```
 
 #### Documentation
 
-https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc
+https://pkg.go.dev/github.com/libtnb/gormstore?tab=doc
 
 #### Example
 
@@ -16,7 +16,7 @@ https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc
 store := gormstore.New(gorm.Open(...))
 ```
 
-For more details see [gormstore documentation](https://pkg.go.dev/github.com/go-rat/gormstore?tab=doc).
+For more details see [gormstore documentation](https://pkg.go.dev/github.com/libtnb/gormstore?tab=doc).
 
 #### Testing
 
