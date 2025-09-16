@@ -42,7 +42,6 @@ func NewOptions(db *gorm.DB, opts Options) driver.Driver {
 	if st.opts.TableName == "" {
 		st.opts.TableName = defaultTableName
 	}
-
 	if !st.opts.SkipCreateTable {
 		_ = st.sessionTable().AutoMigrate(&gormSession{})
 	}
@@ -73,10 +72,13 @@ func (st *Store) Gc(maxLifetime int) error {
 }
 
 func (st *Store) Write(id string, data string) error {
-	s := &gormSession{
-		ID:   id,
-		Data: data,
+	s := &gormSession{ID: id}
+	if err := st.sessionTable().Where("id = ?", id).FirstOrInit(s).Error; err != nil {
+		return err
 	}
+
+	s.Data = data
+
 	return st.sessionTable().Save(s).Error
 }
 
@@ -87,9 +89,9 @@ func (st *Store) sessionTable() *gorm.DB {
 // getSessionByID looks for an existing gormSession from a session ID stored in database
 func (st *Store) getSessionByID(id string) *gormSession {
 	s := &gormSession{}
-	sr := st.sessionTable().Where("id = ?", id).Limit(1).Find(s)
-	if sr.Error != nil {
+	if err := st.sessionTable().Where("id = ?", id).Limit(1).Find(s).Error; err != nil {
 		return nil
 	}
+
 	return s
 }
