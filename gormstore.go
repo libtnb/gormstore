@@ -71,6 +71,10 @@ func (st *Store) Gc(maxLifetime int) error {
 	return st.sessionTable().Delete(&gormSession{}, "updated_at < ?", time.Now().Add(-time.Duration(maxLifetime)*time.Second)).Error
 }
 
+func (st *Store) Touch(id string) error {
+	return st.sessionTable().Where("id = ?", id).Update("updated_at", time.Now()).Error
+}
+
 func (st *Store) Write(id string, data string) error {
 	s := &gormSession{ID: id}
 	if err := st.sessionTable().Where("id = ?", id).FirstOrInit(s).Error; err != nil {
