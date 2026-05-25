@@ -1,6 +1,7 @@
 package gormstore
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/libtnb/sessions/driver"
@@ -22,7 +23,7 @@ type Store struct {
 }
 
 type gormSession struct {
-	ID        string    `gorm:"primaryKey;size:16"`
+	ID        string    `gorm:"primaryKey;size:32"`
 	Data      string    `gorm:"type:text"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
@@ -58,13 +59,12 @@ func (st *Store) Destroy(id string) error {
 }
 
 func (st *Store) Read(id string) (string, error) {
-	// try fetch from db
 	s := st.getSessionByID(id)
 	if s != nil {
 		return s.Data, nil
 	}
 
-	return "", nil
+	return "", fmt.Errorf("session [%s] not found", id)
 }
 
 func (st *Store) Gc(maxLifetime int) error {
@@ -72,7 +72,14 @@ func (st *Store) Gc(maxLifetime int) error {
 }
 
 func (st *Store) Touch(id string) error {
-	return st.sessionTable().Where("id = ?", id).Update("updated_at", time.Now()).Error
+	result := st.sessionTable().Where("id = ?", id).Update("updated_at", time.Now())
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("session [%s] not found", id)
+	}
+	return nil
 }
 
 func (st *Store) Write(id string, data string) error {
@@ -93,7 +100,7 @@ func (st *Store) sessionTable() *gorm.DB {
 // getSessionByID looks for an existing gormSession from a session ID stored in database
 func (st *Store) getSessionByID(id string) *gormSession {
 	s := &gormSession{}
-	if err := st.sessionTable().Where("id = ?", id).Limit(1).Find(s).Error; err != nil {
+	if err := st.sessionTable().Where("id = ?", id).First(s).Error; err != nil {
 		return nil
 	}
 
