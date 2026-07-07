@@ -1,7 +1,7 @@
 package gormstore
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/libtnb/sessions/driver"
@@ -58,28 +58,31 @@ func (st *Store) Destroy(id string) error {
 	return st.sessionTable().Delete(&gormSession{}, "id = ?", id).Error
 }
 
-func (st *Store) Read(id string) (string, error) {
-	s := st.getSessionByID(id)
-	if s != nil {
-		return s.Data, nil
+// Read returns the session data for the given ID. A missing session is
+// reported via found=false; a query failure is returned as an error so the
+// caller never mistakes a database outage for a missing session.
+func (st *Store) Read(id string) (string, bool, error) {
+	s := &gormSession{}
+	if err := st.sessionTable().Where("id = ?", id).First(s).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
 	}
 
-	return "", fmt.Errorf("session [%s] not found", id)
+	return s.Data, true, nil
 }
 
 func (st *Store) Gc(maxLifetime int) error {
 	return st.sessionTable().Delete(&gormSession{}, "updated_at < ?", time.Now().Add(-time.Duration(maxLifetime)*time.Second)).Error
 }
 
-func (st *Store) Touch(id string) error {
+func (st *Store) Touch(id string) (bool, error) {
 	result := st.sessionTable().Where("id = ?", id).Update("updated_at", time.Now())
 	if result.Error != nil {
-		return result.Error
+		return false, result.Error
 	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("session [%s] not found", id)
-	}
-	return nil
+	return result.RowsAffected > 0, nil
 }
 
 func (st *Store) Write(id string, data string) error {
@@ -95,14 +98,4 @@ func (st *Store) Write(id string, data string) error {
 
 func (st *Store) sessionTable() *gorm.DB {
 	return st.db.Table(st.opts.TableName)
-}
-
-// getSessionByID looks for an existing gormSession from a session ID stored in database
-func (st *Store) getSessionByID(id string) *gormSession {
-	s := &gormSession{}
-	if err := st.sessionTable().Where("id = ?", id).First(s).Error; err != nil {
-		return nil
-	}
-
-	return s
 }
