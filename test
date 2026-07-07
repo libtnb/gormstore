@@ -36,7 +36,7 @@ mysql() {
 }
 
 sqlite3 || exit 1
-postgres 15 || exit 1
-postgres 16 || exit 1
-mysql 5.7 || exit 1
-mysql 8.0 || exit 1
+postgres 17 || exit 1
+postgres 18 || exit 1
+mysql 8.4 || exit 1
+mysql 9.7 || exit 1
