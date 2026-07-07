@@ -1,4 +1,4 @@
-package gormstore
+package gormstore_test
 
 import (
 	"net/http"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libtnb/gormstore"
 	"github.com/libtnb/sessions"
 	"github.com/libtnb/sessions/driver"
 	"github.com/libtnb/sessions/middleware"
@@ -19,6 +20,13 @@ import (
 )
 
 const testID = "12345678901234567890123456789012"
+
+// sessionRow mirrors the driver's table layout for direct assertions.
+type sessionRow struct {
+	ID        string
+	Data      string
+	UpdatedAt time.Time
+}
 
 // newTestDB connects to the database given by DATABASE_URI
 // ("<sqlite3|postgres|mysql>://<dsn>", see the ./test script), defaulting to
@@ -92,7 +100,7 @@ func newTestStore(t *testing.T) (driver.Driver, *gorm.DB, string) {
 	db := newTestDB(t)
 	table := "sessions_" + strings.ToLower(strings.ReplaceAll(t.Name(), "/", "_"))
 	db.Exec("DROP TABLE IF EXISTS " + table) // leftovers from a previous run
-	return NewOptions(db, Options{TableName: table}), db, table
+	return gormstore.NewOptions(db, gormstore.Options{TableName: table}), db, table
 }
 
 func TestWriteReadRoundtrip(t *testing.T) {
@@ -147,7 +155,7 @@ func TestTouchRefreshesTimestamp(t *testing.T) {
 		t.Fatalf("Touch: found=%v err=%v", found, err)
 	}
 
-	var s gormSession
+	var s sessionRow
 	if err = db.Table(table).Where("id = ?", testID).First(&s).Error; err != nil {
 		t.Fatalf("read back failed: %v", err)
 	}

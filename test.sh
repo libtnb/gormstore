@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Tests live in the ./test submodule so the main module stays free of
+# database driver dependencies.
+cd "$(dirname "$0")/test" || exit 1
+
 DOCKER_IP=${DOCKER_IP:-127.0.0.1}
 
 sqlite3() {
